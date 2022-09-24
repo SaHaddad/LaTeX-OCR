@@ -1,6 +1,6 @@
-from shutil import which
 import sys
 import os
+import argparse
 import tempfile
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import QObject, Qt, pyqtSlot, pyqtSignal, QThread
@@ -35,10 +35,10 @@ class App(QMainWindow):
     def initUI(self):
         self.setWindowTitle("LaTeX OCR")
         QApplication.setWindowIcon(QtGui.QIcon(':/icons/icon.svg'))
-        self.left = 300
-        self.top = 300
-        self.width = 500
-        self.height = 300
+        self.left = 800
+        self.top =50
+        self.width = 800
+        self.height = 800
         self.setGeometry(self.left, self.top, self.width, self.height)
 
         # Create LaTeX display
@@ -94,7 +94,7 @@ class App(QMainWindow):
             text = 'Interrupt'
             func = self.interrupt
         else:
-            text = 'Snip [Alt+S]'
+            text = 'Snip [bite]'
             func = self.onClick
             self.retryButton.setEnabled(True)
         self.shortcut.setEnabled(not self.isProcessing)
@@ -106,7 +106,7 @@ class App(QMainWindow):
     @pyqtSlot()
     def onClick(self):
         self.close()
-        if which('gnome-screenshot'):
+        if self.args.gnome:
             self.snip_using_gnome_screenshot()
         else:
             self.snipWidget.snip()
@@ -163,7 +163,7 @@ class App(QMainWindow):
     def displayPrediction(self, prediction=None):
         if self.isProcessing:
             pageSource = """<center>
-            <img src="qrc:/icons/processing-icon-anim.svg" width="50", height="50">
+            <img src="qrc:/icons/processing-icon-anim.svg" width="500", height="500">
             </center>"""
         else:
             if prediction is not None:
@@ -183,7 +183,7 @@ class App(QMainWindow):
             </script>
             </head> """ + """
             <body>
-            <div id="equation" style="font-size:1em; visibility:hidden">$${equation}$$</div>
+            <div id="equation" style="font-size:3em; visibility:hidden">$${equation}$$</div>
             </body>
             </html>
                 """.format(equation=prediction)
@@ -215,8 +215,8 @@ class SnipWidget(QMainWindow):
 
     def __init__(self, parent):
         super().__init__()
+        parent.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         self.parent = parent
-
         monitos = get_monitors()
         bboxes = np.array([[m.x, m.y, m.width, m.height] for m in monitos])
         x, y, _, _ = bboxes.min(0)
@@ -298,8 +298,20 @@ class SnipWidget(QMainWindow):
         self.parent.returnSnip(img)
 
 
-def main(arguments):
+def main():
+    parser = argparse.ArgumentParser(description='GUI arguments')
+    parser.add_argument('-t', '--temperature', type=float, default=.2, help='Softmax sampling frequency')
+    parser.add_argument('-c', '--config', type=str, default='settings/config.yaml', help='path to config file')
+    parser.add_argument('-m', '--checkpoint', type=str, default='checkpoints/weights.pth', help='path to weights file')
+    parser.add_argument('--no-cuda', action='store_true', help='Compute on CPU')
+    parser.add_argument('--no-resize', action='store_true', help='Resize the image beforehand')
+    parser.add_argument('--gnome', action='store_true', help='Use gnome-screenshot to capture screenshot')
+    arguments = parser.parse_args()
     with in_model_path():
         app = QApplication(sys.argv)
         ex = App(arguments)
         sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()
